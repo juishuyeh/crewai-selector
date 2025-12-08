@@ -1,0 +1,22 @@
+[project]
+name = "crewai-selector"
+version = "0.1.0"
+description = "CLI plugin to select and run specific crews or flows"
+readme = "README.md"
+authors = [
+    { name = "JSYEH", email = "juishuyeh@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.3.1",
+    "crewai[tools]>=1.6.1",
+    "rich>=14.2.0",
+]
+
+[project.scripts]
+crewai-select = "crewai_selector.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
