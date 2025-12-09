@@ -3,10 +3,12 @@
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Set
 
 from crewai.flow import Flow
 from rich.console import Console
+
+from .constants import EXCLUDED_DIRS
 
 console = Console()
 
@@ -27,9 +29,11 @@ class FlowInfo:
 class FlowLoader:
     """載入專案中的所有 Flows"""
 
-    def __init__(self, base_path: str = "."):
-        self.base_path = Path(base_path)
+    def __init__(self, base_path: str = ".", verbose: bool = False):
+        self.base_path = Path(base_path).resolve()
         self.flows: List[FlowInfo] = []
+        self.verbose = verbose
+        self._seen_files: Set[Path] = set()  # 避免重複掃描
 
     def discover_flows(self) -> List[FlowInfo]:
         """自動發現專案中的所有 Flows"""
@@ -47,10 +51,32 @@ class FlowLoader:
 
         return self.flows
 
+    def _should_skip_path(self, path: Path) -> bool:
+        """檢查是否應該跳過此路徑"""
+        parts = path.parts
+        for part in parts:
+            if part in EXCLUDED_DIRS:
+                return True
+            # 跳過以 . 開頭的隱藏目錄 (除了 .claude 之類的配置)
+            if part.startswith(".") and part not in {".", ".."}:
+                return True
+        return False
+
     def _scan_directory(self, directory: Path) -> None:
         """掃描目錄尋找 Flow 定義"""
         for py_file in directory.rglob("*.py"):
-            if "__pycache__" in str(py_file) or "test_" in py_file.name:
+            # 解析完整路徑以避免重複
+            resolved = py_file.resolve()
+            if resolved in self._seen_files:
+                continue
+            self._seen_files.add(resolved)
+
+            # 檢查是否應該跳過
+            if self._should_skip_path(py_file):
+                continue
+
+            # 跳過測試檔案
+            if "test_" in py_file.name or py_file.name.startswith("test"):
                 continue
 
             self._load_flows_from_file(py_file)
@@ -103,7 +129,8 @@ class FlowLoader:
             sys.modules.pop(module_name, None)
 
         except Exception as e:
-            console.print(f"[dim]跳過 {file_path.name}: {e}[/dim]", style="dim")
+            if self.verbose:
+                console.print(f"[dim]跳過 {file_path.name}: {e}[/dim]", style="dim")
 
     def get_flow(self, name: str) -> Optional[FlowInfo]:
         """根據名稱獲取 Flow"""

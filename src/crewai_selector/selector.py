@@ -15,11 +15,12 @@ console = Console()
 class Selector:
     """互動式 Crew/Flow 選擇器"""
 
-    def __init__(self, base_path: str = "."):
-        self.crew_loader = CrewLoader(base_path)
-        self.flow_loader = FlowLoader(base_path)
+    def __init__(self, base_path: str = ".", verbose: bool = False):
+        self.crew_loader = CrewLoader(base_path, verbose=verbose)
+        self.flow_loader = FlowLoader(base_path, verbose=verbose)
         self.crews: List[CrewInfo] = []
         self.flows: List[FlowInfo] = []
+        self.verbose = verbose
 
     def discover_all(self) -> None:
         """發現所有 Crews 和 Flows"""
