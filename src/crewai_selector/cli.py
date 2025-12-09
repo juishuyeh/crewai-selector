@@ -21,11 +21,12 @@ def main():
 @click.option("--path", "-p", default=".", help="專案路徑 (預設: 當前目錄)")
 @click.option("--name", "-n", default=None, help="直接指定要運行的 Crew 或 Flow 名稱")
 @click.option("--inputs", "-i", default=None, help="JSON 格式的輸入參數")
-def run(path: str, name: str, inputs: str):
+@click.option("--verbose", "-v", is_flag=True, default=False, help="顯示詳細的掃描訊息")
+def run(path: str, name: str, inputs: str, verbose: bool):
     """運行選中的 Crew 或 Flow"""
     import json
 
-    selector = Selector(path)
+    selector = Selector(path, verbose=verbose)
     selector.discover_all()
 
     # 解析輸入參數
@@ -66,18 +67,20 @@ def run(path: str, name: str, inputs: str):
 
 @main.command()
 @click.option("--path", "-p", default=".", help="專案路徑 (預設: 當前目錄)")
-def list(path: str):
+@click.option("--verbose", "-v", is_flag=True, default=False, help="顯示詳細的掃描訊息")
+def list(path: str, verbose: bool):
     """列出所有可用的 Crews 和 Flows"""
-    selector = Selector(path)
+    selector = Selector(path, verbose=verbose)
     selector.discover_all()
     selector.display_menu()
 
 
 @main.command()
 @click.option("--path", "-p", default=".", help="專案路徑 (預設: 當前目錄)")
-def plot(path: str):
+@click.option("--verbose", "-v", is_flag=True, default=False, help="顯示詳細的掃描訊息")
+def plot(path: str, verbose: bool):
     """視覺化 Flow 結構"""
-    selector = Selector(path)
+    selector = Selector(path, verbose=verbose)
     selector.discover_all()
 
     if not selector.flows:

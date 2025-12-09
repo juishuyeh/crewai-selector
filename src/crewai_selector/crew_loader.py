@@ -3,11 +3,13 @@
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Set
 
 from crewai import Crew
 from crewai.project import CrewBase
 from rich.console import Console
+
+from .constants import EXCLUDED_DIRS
 
 console = Console()
 
@@ -28,9 +30,11 @@ class CrewInfo:
 class CrewLoader:
     """載入專案中的所有 Crews"""
 
-    def __init__(self, base_path: str = "."):
-        self.base_path = Path(base_path)
+    def __init__(self, base_path: str = ".", verbose: bool = False):
+        self.base_path = Path(base_path).resolve()
         self.crews: List[CrewInfo] = []
+        self.verbose = verbose
+        self._seen_files: Set[Path] = set()  # 避免重複掃描
 
     def discover_crews(self) -> List[CrewInfo]:
         """自動發現專案中的所有 Crews"""
@@ -48,12 +52,33 @@ class CrewLoader:
 
         return self.crews
 
+    def _should_skip_path(self, path: Path) -> bool:
+        """檢查是否應該跳過此路徑"""
+        parts = path.parts
+        for part in parts:
+            if part in EXCLUDED_DIRS:
+                return True
+            # 跳過以 . 開頭的隱藏目錄 (除了 .claude 之類的配置)
+            if part.startswith(".") and part not in {".", ".."}:
+                return True
+        return False
+
     def _scan_directory(self, directory: Path) -> None:
         """掃描目錄尋找 Crew 定義"""
         # 尋找所有 Python 檔案
         for py_file in directory.rglob("*.py"):
-            # 跳過 __pycache__ 和測試檔案
-            if "__pycache__" in str(py_file) or "test_" in py_file.name:
+            # 解析完整路徑以避免重複
+            resolved = py_file.resolve()
+            if resolved in self._seen_files:
+                continue
+            self._seen_files.add(resolved)
+
+            # 檢查是否應該跳過
+            if self._should_skip_path(py_file):
+                continue
+
+            # 跳過測試檔案
+            if "test_" in py_file.name or py_file.name.startswith("test"):
                 continue
 
             self._load_crews_from_file(py_file)
@@ -110,16 +135,18 @@ class CrewLoader:
                                 f"[dim]({file_path.relative_to(self.base_path)})[/dim]"
                             )
                     except Exception as e:
-                        console.print(
-                            f"[yellow]![/yellow] 無法實例化 {attr_name}: {e}",
-                            style="dim",
-                        )
+                        if self.verbose:
+                            console.print(
+                                f"[yellow]![/yellow] 無法實例化 {attr_name}: {e}",
+                                style="dim",
+                            )
 
             # 清理
             sys.modules.pop(module_name, None)
 
         except Exception as e:
-            console.print(f"[dim]跳過 {file_path.name}: {e}[/dim]", style="dim")
+            if self.verbose:
+                console.print(f"[dim]跳過 {file_path.name}: {e}[/dim]", style="dim")
 
     def get_crew(self, name: str) -> Optional[CrewInfo]:
         """根據名稱獲取 Crew"""
