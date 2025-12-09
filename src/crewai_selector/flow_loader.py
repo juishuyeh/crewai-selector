@@ -53,11 +53,21 @@ class FlowLoader:
 
     def _should_skip_path(self, path: Path) -> bool:
         """檢查是否應該跳過此路徑"""
-        parts = path.parts
-        for part in parts:
+        # 使用字串比對來確保能正確識別排除的目錄
+        path_str = str(path)
+        for excluded in EXCLUDED_DIRS:
+            # 檢查路徑中是否包含排除的目錄（作為目錄名）
+            if f"/{excluded}/" in path_str or f"\\{excluded}\\" in path_str:
+                return True
+            # 檢查路徑是否以排除的目錄開頭
+            if path_str.startswith(f"{excluded}/") or path_str.startswith(f"{excluded}\\"):
+                return True
+
+        # 使用 parts 檢查隱藏目錄
+        for part in path.parts:
             if part in EXCLUDED_DIRS:
                 return True
-            # 跳過以 . 開頭的隱藏目錄 (除了 .claude 之類的配置)
+            # 跳過以 . 開頭的隱藏目錄 (除了 . 和 ..)
             if part.startswith(".") and part not in {".", ".."}:
                 return True
         return False
@@ -71,8 +81,8 @@ class FlowLoader:
                 continue
             self._seen_files.add(resolved)
 
-            # 檢查是否應該跳過
-            if self._should_skip_path(py_file):
+            # 檢查是否應該跳過 (使用解析後的絕對路徑)
+            if self._should_skip_path(resolved):
                 continue
 
             # 跳過測試檔案
